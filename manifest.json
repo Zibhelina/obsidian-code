@@ -1,0 +1,9 @@
+{
+	"id": "obsidian-code",
+	"name": "Obsidian Code",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Open and edit code files in a native-feeling CodeMirror editor.",
+	"author": "obsidian-code",
+	"isDesktopOnly": false
+}

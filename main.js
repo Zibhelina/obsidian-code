@@ -43402,145 +43402,6 @@ function maxSeverity(diagnostics) {
   }
   return sev;
 }
-var LintGutterMarker = class extends GutterMarker {
-  constructor(diagnostics) {
-    super();
-    this.diagnostics = diagnostics;
-    this.severity = maxSeverity(diagnostics);
-  }
-  toDOM(view) {
-    let elt2 = document.createElement("div");
-    elt2.className = "cm-lint-marker cm-lint-marker-" + this.severity;
-    let diagnostics = this.diagnostics;
-    let diagnosticsFilter = view.state.facet(lintGutterConfig).tooltipFilter;
-    if (diagnosticsFilter)
-      diagnostics = diagnosticsFilter(diagnostics, view.state);
-    if (diagnostics.length)
-      elt2.onmouseover = () => gutterMarkerMouseOver(view, elt2, diagnostics);
-    return elt2;
-  }
-};
-function trackHoverOn(view, marker) {
-  let mousemove = (event) => {
-    let rect = marker.getBoundingClientRect();
-    if (event.clientX > rect.left - 10 && event.clientX < rect.right + 10 && event.clientY > rect.top - 10 && event.clientY < rect.bottom + 10)
-      return;
-    for (let target = event.target; target; target = target.parentNode) {
-      if (target.nodeType == 1 && target.classList.contains("cm-tooltip-lint"))
-        return;
-    }
-    window.removeEventListener("mousemove", mousemove);
-    if (view.state.field(lintGutterTooltip))
-      view.dispatch({ effects: setLintGutterTooltip.of(null) });
-  };
-  window.addEventListener("mousemove", mousemove);
-}
-function gutterMarkerMouseOver(view, marker, diagnostics) {
-  function hovered() {
-    let line = view.elementAtHeight(marker.getBoundingClientRect().top + 5 - view.documentTop);
-    const linePos = view.coordsAtPos(line.from);
-    if (linePos) {
-      view.dispatch({ effects: setLintGutterTooltip.of({
-        pos: line.from,
-        above: false,
-        clip: false,
-        create() {
-          return {
-            dom: diagnosticsTooltip(view, diagnostics),
-            getCoords: () => marker.getBoundingClientRect()
-          };
-        }
-      }) });
-    }
-    marker.onmouseout = marker.onmousemove = null;
-    trackHoverOn(view, marker);
-  }
-  let { hoverTime } = view.state.facet(lintGutterConfig);
-  let hoverTimeout = setTimeout(hovered, hoverTime);
-  marker.onmouseout = () => {
-    clearTimeout(hoverTimeout);
-    marker.onmouseout = marker.onmousemove = null;
-  };
-  marker.onmousemove = () => {
-    clearTimeout(hoverTimeout);
-    hoverTimeout = setTimeout(hovered, hoverTime);
-  };
-}
-function markersForDiagnostics(doc2, diagnostics) {
-  let byLine = /* @__PURE__ */ Object.create(null);
-  for (let diagnostic of diagnostics) {
-    let line = doc2.lineAt(diagnostic.from);
-    (byLine[line.from] || (byLine[line.from] = [])).push(diagnostic);
-  }
-  let markers = [];
-  for (let line in byLine) {
-    markers.push(new LintGutterMarker(byLine[line]).range(+line));
-  }
-  return RangeSet.of(markers, true);
-}
-var lintGutterExtension = /* @__PURE__ */ gutter({
-  class: "cm-gutter-lint",
-  markers: (view) => view.state.field(lintGutterMarkers),
-  widgetMarker: (view, widget, block) => {
-    let diagnostics = [];
-    view.state.field(lintGutterMarkers).between(block.from, block.to, (from3, to, value) => {
-      if (from3 > block.from && from3 < block.to)
-        diagnostics.push(...value.diagnostics);
-    });
-    return diagnostics.length ? new LintGutterMarker(diagnostics) : null;
-  }
-});
-var lintGutterMarkers = /* @__PURE__ */ StateField.define({
-  create() {
-    return RangeSet.empty;
-  },
-  update(markers, tr) {
-    markers = markers.map(tr.changes);
-    let diagnosticFilter = tr.state.facet(lintGutterConfig).markerFilter;
-    for (let effect of tr.effects) {
-      if (effect.is(setDiagnosticsEffect)) {
-        let diagnostics = effect.value;
-        if (diagnosticFilter)
-          diagnostics = diagnosticFilter(diagnostics || [], tr.state);
-        markers = markersForDiagnostics(tr.state.doc, diagnostics.slice(0));
-      }
-    }
-    return markers;
-  }
-});
-var setLintGutterTooltip = /* @__PURE__ */ StateEffect.define();
-var lintGutterTooltip = /* @__PURE__ */ StateField.define({
-  create() {
-    return null;
-  },
-  update(tooltip, tr) {
-    if (tooltip && tr.docChanged)
-      tooltip = hideTooltip(tr, tooltip) ? null : { ...tooltip, pos: tr.changes.mapPos(tooltip.pos) };
-    return tr.effects.reduce((t2, e) => e.is(setLintGutterTooltip) ? e.value : t2, tooltip);
-  },
-  provide: (field) => showTooltip.from(field)
-});
-var lintGutterTheme = /* @__PURE__ */ EditorView.baseTheme({
-  ".cm-gutter-lint": {
-    width: "1.4em",
-    "& .cm-gutterElement": {
-      padding: ".2em"
-    }
-  },
-  ".cm-lint-marker": {
-    width: "1em",
-    height: "1em"
-  },
-  ".cm-lint-marker-info": {
-    content: /* @__PURE__ */ svg(`<path fill="#aaf" stroke="#77e" stroke-width="6" stroke-linejoin="round" d="M5 5L35 5L35 35L5 35Z"/>`)
-  },
-  ".cm-lint-marker-warning": {
-    content: /* @__PURE__ */ svg(`<path fill="#fe8" stroke="#fd7" stroke-width="6" stroke-linejoin="round" d="M20 6L37 35L3 35Z"/>`)
-  },
-  ".cm-lint-marker-error": {
-    content: /* @__PURE__ */ svg(`<circle cx="20" cy="20" r="15" fill="#f87" stroke="#f43" stroke-width="6"/>`)
-  }
-});
 var lintExtensions = [
   lintState,
   /* @__PURE__ */ EditorView.decorations.compute([lintState], (state) => {
@@ -43552,18 +43413,6 @@ var lintExtensions = [
   /* @__PURE__ */ hoverTooltip(lintTooltip, { hideOn: hideTooltip }),
   baseTheme5
 ];
-var lintGutterConfig = /* @__PURE__ */ Facet.define({
-  combine(configs) {
-    return combineConfig(configs, {
-      hoverTime: 300,
-      markerFilter: null,
-      tooltipFilter: null
-    });
-  }
-});
-function lintGutter(config2 = {}) {
-  return [lintGutterConfig.of(config2), lintGutterMarkers, lintGutterExtension, lintGutterTheme, lintGutterTooltip];
-}
 
 // main.ts
 var VIEW_TYPE_CODE = "obsidian-code-file";
@@ -43762,13 +43611,16 @@ var CodeFileView = class extends import_obsidian.TextFileView {
     this.editorHostEl = null;
     this.isSettingViewData = false;
     this.fontSizePx = null;
-    this.handleDocumentKeydown = (event) => {
-      if (!this.isEventInsideEditor(event)) {
+    this.keydownWindow = null;
+    this.handleWindowKeydown = (event) => {
+      if (!this.isEventForEditor(event)) {
         return;
       }
       this.handleFontSizeKeydown(event);
     };
     this.navigation = true;
+    this.scope = new import_obsidian.Scope(this.app.scope);
+    this.registerFontSizeScopeHotkeys();
   }
   getViewType() {
     return VIEW_TYPE_CODE;
@@ -43820,12 +43672,14 @@ var CodeFileView = class extends import_obsidian.TextFileView {
     this.contentEl.empty();
   }
   mountEditor(data2) {
+    var _a2;
     this.destroyEditor();
     this.contentEl.empty();
     this.contentEl.addClass("obsidian-code-view");
     this.applyFontSize(this.ensureFontSizePx());
     this.editorHostEl = this.contentEl.createDiv({ cls: "obsidian-code-editor-host" });
-    this.contentEl.ownerDocument.addEventListener("keydown", this.handleDocumentKeydown, true);
+    this.keydownWindow = this.contentEl.ownerDocument.defaultView;
+    (_a2 = this.keydownWindow) == null ? void 0 : _a2.addEventListener("keydown", this.handleWindowKeydown, true);
     this.editorView = new EditorView({
       state: EditorState.create({
         doc: data2,
@@ -43833,15 +43687,35 @@ var CodeFileView = class extends import_obsidian.TextFileView {
       }),
       parent: this.editorHostEl
     });
+    this.editorHostEl.style.setProperty("--obsidian-code-tab-size", "4");
+    this.updateIndentCharWidth();
     setTimeout(() => {
-      var _a2;
-      return (_a2 = this.editorView) == null ? void 0 : _a2.focus();
+      var _a3;
+      return (_a3 = this.editorView) == null ? void 0 : _a3.focus();
     }, 0);
   }
+  updateIndentCharWidth() {
+    if (!this.editorView || !this.editorHostEl) {
+      return;
+    }
+    const contentEl = this.editorView.contentDOM;
+    const probe = contentEl.ownerDocument.createElement("span");
+    probe.textContent = "0".repeat(40);
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    probe.style.whiteSpace = "pre";
+    contentEl.appendChild(probe);
+    const width = probe.getBoundingClientRect().width / 40;
+    contentEl.removeChild(probe);
+    if (width > 0 && Number.isFinite(width)) {
+      this.editorHostEl.style.setProperty("--obsidian-code-indent-step", `${width}px`);
+    }
+  }
   destroyEditor() {
-    var _a2;
-    this.contentEl.ownerDocument.removeEventListener("keydown", this.handleDocumentKeydown, true);
-    (_a2 = this.editorView) == null ? void 0 : _a2.destroy();
+    var _a2, _b2;
+    (_a2 = this.keydownWindow) == null ? void 0 : _a2.removeEventListener("keydown", this.handleWindowKeydown, true);
+    this.keydownWindow = null;
+    (_b2 = this.editorView) == null ? void 0 : _b2.destroy();
     this.editorView = null;
     this.editorHostEl = null;
   }
@@ -43856,7 +43730,6 @@ var CodeFileView = class extends import_obsidian.TextFileView {
       closeBrackets(),
       bracketMatching(),
       lineNumbers(),
-      lintGutter(),
       foldGutter(),
       indentGuides(),
       highlightActiveLine(),
@@ -43927,7 +43800,7 @@ var CodeFileView = class extends import_obsidian.TextFileView {
           caretColor: "var(--interactive-accent)"
         },
         ".cm-line": {
-          padding: "0 20px 0 12px"
+          padding: "0 20px 0 4px"
         },
         ".cm-gutters": {
           backgroundColor: "transparent",
@@ -43942,19 +43815,34 @@ var CodeFileView = class extends import_obsidian.TextFileView {
         },
         ".cm-lineNumbers .cm-gutterElement": {
           opacity: "0.48",
-          minWidth: "2.6ch",
-          padding: "0 8px 0 0",
+          minWidth: "2.2ch",
+          padding: "0 4px 0 0",
           textAlign: "right"
+        },
+        ".cm-gutter.cm-foldGutter": {
+          minWidth: "12px"
         },
         ".cm-foldGutter .cm-gutterElement": {
           color: "var(--text-faint)",
           cursor: "pointer",
-          minWidth: "16px",
-          padding: "0 3px",
+          minWidth: "12px",
+          padding: "0",
           textAlign: "center"
         },
-        ".obsidian-code-indent-guide": {
-          backgroundImage: "linear-gradient(to right, transparent calc(100% - 1px), color-mix(in srgb, var(--text-faint) 34%, transparent) calc(100% - 1px))"
+        ".cm-foldPlaceholder": {
+          backgroundColor: "transparent",
+          border: "none",
+          borderRadius: "0",
+          color: "var(--text-faint)",
+          margin: "0 2px",
+          padding: "0",
+          opacity: "0.7"
+        },
+        ".cm-line.obsidian-code-indent-line": {
+          backgroundImage: "repeating-linear-gradient(to right, color-mix(in srgb, var(--text-faint) 28%, transparent) 0 1px, transparent 1px calc(var(--obsidian-code-indent-step, 1ch) * var(--obsidian-code-tab-size, 4)))",
+          backgroundSize: "calc(var(--obsidian-code-indent-step, 1ch) * var(--obsidian-code-tab-size, 4) * var(--obsidian-code-indent-depth, 0)) 100%",
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "var(--obsidian-code-indent-offset, 4px) 0"
         },
         ".cm-lintRange-error": {
           backgroundImage: "linear-gradient(45deg, transparent 65%, var(--text-error) 80%, transparent 90%)"
@@ -43998,9 +43886,17 @@ var CodeFileView = class extends import_obsidian.TextFileView {
     }
     return extensions;
   }
-  isEventInsideEditor(event) {
+  isEventForEditor(event) {
+    var _a2;
+    if ((_a2 = this.editorView) == null ? void 0 : _a2.hasFocus) {
+      return true;
+    }
     const target = event.target;
-    return target instanceof Node && this.contentEl.contains(target);
+    if (target instanceof Node && this.contentEl.contains(target)) {
+      return true;
+    }
+    const activeElement = this.contentEl.ownerDocument.activeElement;
+    return activeElement instanceof Node && this.contentEl.contains(activeElement);
   }
   handleFontSizeKeydown(event) {
     if (!isFontSizeShortcut(event)) {
@@ -44035,6 +43931,7 @@ var CodeFileView = class extends import_obsidian.TextFileView {
     this.fontSizePx = nextFontSizePx;
     this.applyFontSize(nextFontSizePx);
     (_a2 = this.editorView) == null ? void 0 : _a2.requestMeasure();
+    this.updateIndentCharWidth();
   }
   ensureFontSizePx() {
     if (this.fontSizePx !== null) {
@@ -44056,6 +43953,23 @@ var CodeFileView = class extends import_obsidian.TextFileView {
   }
   applyFontSize(fontSizePx) {
     this.contentEl.style.setProperty("--obsidian-code-font-size", `${fontSizePx}px`);
+  }
+  registerFontSizeScopeHotkeys() {
+    var _a2, _b2, _c, _d, _e2, _f2;
+    const zoomIn = () => {
+      this.increaseFontSize();
+      return false;
+    };
+    const zoomOut = () => {
+      this.decreaseFontSize();
+      return false;
+    };
+    (_a2 = this.scope) == null ? void 0 : _a2.register(["Mod"], "=", zoomIn);
+    (_b2 = this.scope) == null ? void 0 : _b2.register(["Mod"], "+", zoomIn);
+    (_c = this.scope) == null ? void 0 : _c.register(["Mod", "Shift"], "+", zoomIn);
+    (_d = this.scope) == null ? void 0 : _d.register(["Mod"], "-", zoomOut);
+    (_e2 = this.scope) == null ? void 0 : _e2.register(["Mod"], "_", zoomOut);
+    (_f2 = this.scope) == null ? void 0 : _f2.register(["Mod", "Shift"], "_", zoomOut);
   }
 };
 var ObsidianCodePlugin = class extends import_obsidian.Plugin {
@@ -44144,9 +44058,6 @@ function parseCssPixelValue(value) {
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
-var indentGuideDecoration = Decoration.mark({
-  class: "obsidian-code-indent-guide"
-});
 function indentGuides() {
   return ViewPlugin.fromClass(
     class {
@@ -44167,29 +44078,53 @@ function indentGuides() {
 function buildIndentGuideDecorations(view) {
   const builder = new RangeSetBuilder();
   const tabSize = view.state.tabSize;
-  for (const range of view.visibleRanges) {
-    let position = range.from;
-    while (position <= range.to) {
-      const line = view.state.doc.lineAt(position);
-      addIndentGuidesForLine(builder, line.from, line.text, tabSize);
-      position = line.to + 1;
+  const doc2 = view.state.doc;
+  const lineDepths = new Array(doc2.lines + 1);
+  for (let lineNumber = 1; lineNumber <= doc2.lines; lineNumber++) {
+    const line = doc2.line(lineNumber);
+    const { depth, isBlank } = computeIndentDepth(line.text, tabSize);
+    lineDepths[lineNumber] = isBlank ? -1 : depth;
+  }
+  let nextDepth = 0;
+  for (let lineNumber = doc2.lines; lineNumber >= 1; lineNumber--) {
+    if (lineDepths[lineNumber] === -1) {
+      lineDepths[lineNumber] = nextDepth;
+    } else {
+      nextDepth = lineDepths[lineNumber];
     }
+  }
+  for (let lineNumber = 1; lineNumber <= doc2.lines; lineNumber++) {
+    const depth = lineDepths[lineNumber];
+    if (depth <= 0) {
+      continue;
+    }
+    const line = doc2.line(lineNumber);
+    builder.add(
+      line.from,
+      line.from,
+      Decoration.line({
+        attributes: {
+          class: "obsidian-code-indent-line",
+          style: `--obsidian-code-indent-depth: ${depth}`
+        }
+      })
+    );
   }
   return builder.finish();
 }
-function addIndentGuidesForLine(builder, lineFrom, text, tabSize) {
+function computeIndentDepth(text, tabSize) {
   let column = 0;
   for (let index = 0; index < text.length; index++) {
     const character = text[index];
-    if (character !== " " && character !== "	") {
-      return;
+    if (character === " ") {
+      column += 1;
+    } else if (character === "	") {
+      column += tabSize - column % tabSize;
+    } else {
+      return { depth: Math.floor(column / tabSize), isBlank: false };
     }
-    const nextColumn = character === "	" ? column + tabSize - column % tabSize : column + 1;
-    if (nextColumn > 0 && nextColumn % tabSize === 0) {
-      builder.add(lineFrom + index, lineFrom + index + 1, indentGuideDecoration);
-    }
-    column = nextColumn;
   }
+  return { depth: Math.floor(column / tabSize), isBlank: true };
 }
 function isFontSizeShortcut(event) {
   if (event.altKey) {
@@ -44205,7 +44140,7 @@ function isFontSizeDecreaseKey(event) {
   return event.key === "-" || event.key === "_" || event.code === "Minus" || event.code === "NumpadSubtract";
 }
 function isMacPlatform() {
-  return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  return import_obsidian.Platform.isMacOS;
 }
 function syntaxErrorLinter() {
   return linter((view) => {

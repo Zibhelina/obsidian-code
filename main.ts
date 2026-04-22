@@ -2,8 +2,10 @@ import {
 	App,
 	Modal,
 	Notice,
+	Platform,
 	Plugin,
 	Setting,
+	Scope,
 	TAbstractFile,
 	TFile,
 	TFolder,
@@ -76,7 +78,7 @@ import {
 	keymap,
 	lineNumbers,
 } from "@codemirror/view";
-import { Diagnostic, lintGutter, lintKeymap, linter } from "@codemirror/lint";
+import { Diagnostic, lintKeymap, linter } from "@codemirror/lint";
 import { tags } from "@lezer/highlight";
 
 const VIEW_TYPE_CODE = "obsidian-code-file";
@@ -295,8 +297,9 @@ class CodeFileView extends TextFileView {
 	private editorHostEl: HTMLDivElement | null = null;
 	private isSettingViewData = false;
 	private fontSizePx: number | null = null;
-	private readonly handleDocumentKeydown = (event: KeyboardEvent) => {
-		if (!this.isEventInsideEditor(event)) {
+	private keydownWindow: Window | null = null;
+	private readonly handleWindowKeydown = (event: KeyboardEvent) => {
+		if (!this.isEventForEditor(event)) {
 			return;
 		}
 
@@ -306,6 +309,8 @@ class CodeFileView extends TextFileView {
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
 		this.navigation = true;
+		this.scope = new Scope(this.app.scope);
+		this.registerFontSizeScopeHotkeys();
 	}
 
 	getViewType(): string {
@@ -371,7 +376,8 @@ class CodeFileView extends TextFileView {
 		this.contentEl.addClass("obsidian-code-view");
 		this.applyFontSize(this.ensureFontSizePx());
 		this.editorHostEl = this.contentEl.createDiv({ cls: "obsidian-code-editor-host" });
-		this.contentEl.ownerDocument.addEventListener("keydown", this.handleDocumentKeydown, true);
+		this.keydownWindow = this.contentEl.ownerDocument.defaultView;
+		this.keydownWindow?.addEventListener("keydown", this.handleWindowKeydown, true);
 
 		this.editorView = new EditorView({
 			state: EditorState.create({
@@ -381,11 +387,35 @@ class CodeFileView extends TextFileView {
 			parent: this.editorHostEl,
 		});
 
+		this.editorHostEl.style.setProperty("--obsidian-code-tab-size", "4");
+		this.updateIndentCharWidth();
+
 		setTimeout(() => this.editorView?.focus(), 0);
 	}
 
+	private updateIndentCharWidth() {
+		if (!this.editorView || !this.editorHostEl) {
+			return;
+		}
+
+		const contentEl = this.editorView.contentDOM;
+		const probe = contentEl.ownerDocument.createElement("span");
+		probe.textContent = "0".repeat(40);
+		probe.style.position = "absolute";
+		probe.style.visibility = "hidden";
+		probe.style.whiteSpace = "pre";
+		contentEl.appendChild(probe);
+		const width = probe.getBoundingClientRect().width / 40;
+		contentEl.removeChild(probe);
+
+		if (width > 0 && Number.isFinite(width)) {
+			this.editorHostEl.style.setProperty("--obsidian-code-indent-step", `${width}px`);
+		}
+	}
+
 	private destroyEditor() {
-		this.contentEl.ownerDocument.removeEventListener("keydown", this.handleDocumentKeydown, true);
+		this.keydownWindow?.removeEventListener("keydown", this.handleWindowKeydown, true);
+		this.keydownWindow = null;
 		this.editorView?.destroy();
 		this.editorView = null;
 		this.editorHostEl = null;
@@ -401,7 +431,6 @@ class CodeFileView extends TextFileView {
 			closeBrackets(),
 			bracketMatching(),
 			lineNumbers(),
-			lintGutter(),
 			foldGutter(),
 			indentGuides(),
 			highlightActiveLine(),
@@ -473,7 +502,7 @@ class CodeFileView extends TextFileView {
 					caretColor: "var(--interactive-accent)",
 				},
 				".cm-line": {
-					padding: "0 20px 0 12px",
+					padding: "0 20px 0 4px",
 				},
 				".cm-gutters": {
 					backgroundColor: "transparent",
@@ -488,19 +517,36 @@ class CodeFileView extends TextFileView {
 				},
 				".cm-lineNumbers .cm-gutterElement": {
 					opacity: "0.48",
-					minWidth: "2.6ch",
-					padding: "0 8px 0 0",
+					minWidth: "2.2ch",
+					padding: "0 4px 0 0",
 					textAlign: "right",
+				},
+				".cm-gutter.cm-foldGutter": {
+					minWidth: "12px",
 				},
 				".cm-foldGutter .cm-gutterElement": {
 					color: "var(--text-faint)",
 					cursor: "pointer",
-					minWidth: "16px",
-					padding: "0 3px",
+					minWidth: "12px",
+					padding: "0",
 					textAlign: "center",
 				},
-				".obsidian-code-indent-guide": {
-					backgroundImage: "linear-gradient(to right, transparent calc(100% - 1px), color-mix(in srgb, var(--text-faint) 34%, transparent) calc(100% - 1px))",
+				".cm-foldPlaceholder": {
+					backgroundColor: "transparent",
+					border: "none",
+					borderRadius: "0",
+					color: "var(--text-faint)",
+					margin: "0 2px",
+					padding: "0",
+					opacity: "0.7",
+				},
+				".cm-line.obsidian-code-indent-line": {
+					backgroundImage:
+						"repeating-linear-gradient(to right, color-mix(in srgb, var(--text-faint) 28%, transparent) 0 1px, transparent 1px calc(var(--obsidian-code-indent-step, 1ch) * var(--obsidian-code-tab-size, 4)))",
+					backgroundSize:
+						"calc(var(--obsidian-code-indent-step, 1ch) * var(--obsidian-code-tab-size, 4) * var(--obsidian-code-indent-depth, 0)) 100%",
+					backgroundRepeat: "no-repeat",
+					backgroundPosition: "var(--obsidian-code-indent-offset, 4px) 0",
 				},
 				".cm-lintRange-error": {
 					backgroundImage: "linear-gradient(45deg, transparent 65%, var(--text-error) 80%, transparent 90%)",
@@ -548,9 +594,18 @@ class CodeFileView extends TextFileView {
 		return extensions;
 	}
 
-	private isEventInsideEditor(event: KeyboardEvent): boolean {
+	private isEventForEditor(event: KeyboardEvent): boolean {
+		if (this.editorView?.hasFocus) {
+			return true;
+		}
+
 		const target = event.target;
-		return target instanceof Node && this.contentEl.contains(target);
+		if (target instanceof Node && this.contentEl.contains(target)) {
+			return true;
+		}
+
+		const activeElement = this.contentEl.ownerDocument.activeElement;
+		return activeElement instanceof Node && this.contentEl.contains(activeElement);
 	}
 
 	private handleFontSizeKeydown(event: KeyboardEvent): boolean {
@@ -593,6 +648,7 @@ class CodeFileView extends TextFileView {
 		this.fontSizePx = nextFontSizePx;
 		this.applyFontSize(nextFontSizePx);
 		this.editorView?.requestMeasure();
+		this.updateIndentCharWidth();
 	}
 
 	private ensureFontSizePx(): number {
@@ -618,6 +674,24 @@ class CodeFileView extends TextFileView {
 
 	private applyFontSize(fontSizePx: number) {
 		this.contentEl.style.setProperty("--obsidian-code-font-size", `${fontSizePx}px`);
+	}
+
+	private registerFontSizeScopeHotkeys() {
+		const zoomIn = () => {
+			this.increaseFontSize();
+			return false;
+		};
+		const zoomOut = () => {
+			this.decreaseFontSize();
+			return false;
+		};
+
+		this.scope?.register(["Mod"], "=", zoomIn);
+		this.scope?.register(["Mod"], "+", zoomIn);
+		this.scope?.register(["Mod", "Shift"], "+", zoomIn);
+		this.scope?.register(["Mod"], "-", zoomOut);
+		this.scope?.register(["Mod"], "_", zoomOut);
+		this.scope?.register(["Mod", "Shift"], "_", zoomOut);
 	}
 }
 
@@ -729,10 +803,6 @@ function clamp(value: number, min: number, max: number): number {
 	return Math.min(Math.max(value, min), max);
 }
 
-const indentGuideDecoration = Decoration.mark({
-	class: "obsidian-code-indent-guide",
-});
-
 function indentGuides(): Extension {
 	return ViewPlugin.fromClass(
 		class {
@@ -757,46 +827,63 @@ function indentGuides(): Extension {
 function buildIndentGuideDecorations(view: EditorView): DecorationSet {
 	const builder = new RangeSetBuilder<Decoration>();
 	const tabSize = view.state.tabSize;
+	const doc = view.state.doc;
 
-	for (const range of view.visibleRanges) {
-		let position = range.from;
+	const lineDepths: number[] = new Array(doc.lines + 1);
 
-		while (position <= range.to) {
-			const line = view.state.doc.lineAt(position);
-			addIndentGuidesForLine(builder, line.from, line.text, tabSize);
-			position = line.to + 1;
+	for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
+		const line = doc.line(lineNumber);
+		const { depth, isBlank } = computeIndentDepth(line.text, tabSize);
+		lineDepths[lineNumber] = isBlank ? -1 : depth;
+	}
+
+	let nextDepth = 0;
+	for (let lineNumber = doc.lines; lineNumber >= 1; lineNumber--) {
+		if (lineDepths[lineNumber] === -1) {
+			lineDepths[lineNumber] = nextDepth;
+		} else {
+			nextDepth = lineDepths[lineNumber];
 		}
+	}
+
+	for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
+		const depth = lineDepths[lineNumber];
+		if (depth <= 0) {
+			continue;
+		}
+
+		const line = doc.line(lineNumber);
+		builder.add(
+			line.from,
+			line.from,
+			Decoration.line({
+				attributes: {
+					class: "obsidian-code-indent-line",
+					style: `--obsidian-code-indent-depth: ${depth}`,
+				},
+			})
+		);
 	}
 
 	return builder.finish();
 }
 
-function addIndentGuidesForLine(
-	builder: RangeSetBuilder<Decoration>,
-	lineFrom: number,
-	text: string,
-	tabSize: number
-) {
+function computeIndentDepth(text: string, tabSize: number): { depth: number; isBlank: boolean } {
 	let column = 0;
 
 	for (let index = 0; index < text.length; index++) {
 		const character = text[index];
 
-		if (character !== " " && character !== "\t") {
-			return;
+		if (character === " ") {
+			column += 1;
+		} else if (character === "\t") {
+			column += tabSize - (column % tabSize);
+		} else {
+			return { depth: Math.floor(column / tabSize), isBlank: false };
 		}
-
-		const nextColumn =
-			character === "\t"
-				? column + tabSize - (column % tabSize)
-				: column + 1;
-
-		if (nextColumn > 0 && nextColumn % tabSize === 0) {
-			builder.add(lineFrom + index, lineFrom + index + 1, indentGuideDecoration);
-		}
-
-		column = nextColumn;
 	}
+
+	return { depth: Math.floor(column / tabSize), isBlank: true };
 }
 
 function isFontSizeShortcut(event: KeyboardEvent): boolean {
@@ -817,7 +904,7 @@ function isFontSizeDecreaseKey(event: KeyboardEvent): boolean {
 }
 
 function isMacPlatform(): boolean {
-	return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+	return Platform.isMacOS;
 }
 
 function syntaxErrorLinter(): Extension {

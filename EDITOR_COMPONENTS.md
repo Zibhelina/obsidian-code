@@ -15,12 +15,13 @@ Obsidian Code is a single-file editor view for code and configuration files. It 
 - CodeMirror editor mounted directly in the Obsidian file pane.
 - Syntax highlighting mapped to Obsidian CSS variables.
 - Minimal line-number gutter without left padding, subdued line numbers, no active-line gutter highlight, and no divider between the gutter and code.
-- Fold controls are ordered after line numbers so they sit next to the foldable code.
-- Indentation guides are drawn as decorations over leading whitespace.
-- Lint gutter, active-line highlight, search, autocomplete, bracket matching, auto-close brackets, and indentation keymaps.
+- Fold controls are compact and ordered after line numbers so they sit next to the foldable code without creating a wide gap.
+- Inline fold placeholders render without the default background, border, or rounded corners, so collapsed regions appear as a subtle dotted icon.
+- Indentation guides are painted as a `Decoration.line` background stripe on each indented line. The number of stripes is encoded in a per-line CSS custom property, and the spacing is driven by a character-width variable measured from the editor's content DOM so guides stay aligned across font sizes and themes.
+- Inline lint diagnostics, active-line highlight, search, autocomplete, bracket matching, auto-close brackets, and indentation keymaps.
 - Parser-based syntax diagnostics, with JSON parse diagnostics for `.json`.
 - Debounced saving through Obsidian's `TextFileView` lifecycle, plus `Cmd/Ctrl+S`.
-- Per-view font-size adjustment through `Cmd/Ctrl + Plus` and `Cmd/Ctrl + Minus`, implemented as an editor-scoped CSS variable and handled from raw keydown events inside the code pane.
+- Per-view font-size adjustment through `Cmd/Ctrl + Plus` and `Cmd/Ctrl + Minus`, implemented as an editor-scoped CSS variable and handled through focused-view hotkeys plus raw keydown capture inside the code pane.
 
 ## Explicitly Not Included
 

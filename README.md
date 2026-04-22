@@ -8,11 +8,12 @@ The plugin does not add a separate workspace, file explorer, editor header, tool
 
 - Syntax highlighting for common programming, scripting, markup, data, and config files.
 - Line numbers, code-adjacent fold controls, active-line highlighting, bracket matching, auto-close brackets, search, autocomplete, and `Tab` indentation.
-- Lint gutter and diagnostics for parser syntax errors, plus JSON parse linting for `.json` files.
+- Inline diagnostics for parser syntax errors, plus JSON parse linting for `.json` files.
 - Dynamic styling through Obsidian CSS variables, so changing the Obsidian theme updates the editor palette.
-- Minimal gutter styling with subdued line numbers and no divider between line numbers and code.
-- Indentation guides for scanning nested blocks without adding extra chrome.
-- Per-pane code font sizing with `Cmd/Ctrl + Plus` and `Cmd/Ctrl + Minus`.
+- Minimal gutter styling with subdued line numbers, compact code-adjacent fold controls, and no divider between line numbers and code.
+- Continuous indentation guides drawn as full-line background stripes, so the vertical lines stay connected across rows (including blank lines inside a block) and align with the editor's real character width.
+- Inline fold placeholders render as a subtle dotted icon that blends with the editor background.
+- Per-pane code font sizing with `Cmd/Ctrl + Plus` and `Cmd/Ctrl + Minus`, handled while the code pane is focused.
 - Folder context-menu action for creating files such as `main.py` or `hello.c`.
 
 ## Supported Extensions

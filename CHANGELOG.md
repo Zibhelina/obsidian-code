@@ -2,6 +2,10 @@
 
 All notable changes to Obsidian Code are documented here.
 
+## Unreleased
+
+- Added an optional vim keybindings toggle, accessible from a new plugin settings tab. Enabling or disabling the toggle rebuilds every open code editor in place without losing the current unsaved buffer.
+
 ## 1.0.0 - Native Code Editor
 
 - Registered common code and configuration extensions with a focused CodeMirror file view.

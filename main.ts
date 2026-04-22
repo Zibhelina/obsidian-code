@@ -4,6 +4,7 @@ import {
 	Notice,
 	Platform,
 	Plugin,
+	PluginSettingTab,
 	Setting,
 	Scope,
 	TAbstractFile,
@@ -14,6 +15,7 @@ import {
 	WorkspaceLeaf,
 	normalizePath,
 } from "obsidian";
+import { vim } from "@replit/codemirror-vim";
 import { closeBrackets, closeBracketsKeymap, completionKeymap, autocompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
@@ -86,6 +88,14 @@ const DEFAULT_CODE_FONT_SIZE_PX = 14;
 const MIN_CODE_FONT_SIZE_PX = 9;
 const MAX_CODE_FONT_SIZE_PX = 32;
 const CODE_FONT_SIZE_STEP_PX = 1;
+
+interface ObsidianCodeSettings {
+	vim: boolean;
+}
+
+const DEFAULT_SETTINGS: ObsidianCodeSettings = {
+	vim: false,
+};
 
 const CODE_EXTENSIONS = [
 	"asm",
@@ -298,6 +308,7 @@ class CodeFileView extends TextFileView {
 	private isSettingViewData = false;
 	private fontSizePx: number | null = null;
 	private keydownWindow: Window | null = null;
+	private readonly plugin: ObsidianCodePlugin;
 	private readonly handleWindowKeydown = (event: KeyboardEvent) => {
 		if (!this.isEventForEditor(event)) {
 			return;
@@ -306,11 +317,19 @@ class CodeFileView extends TextFileView {
 		this.handleFontSizeKeydown(event);
 	};
 
-	constructor(leaf: WorkspaceLeaf) {
+	constructor(leaf: WorkspaceLeaf, plugin: ObsidianCodePlugin) {
 		super(leaf);
+		this.plugin = plugin;
 		this.navigation = true;
 		this.scope = new Scope(this.app.scope);
 		this.registerFontSizeScopeHotkeys();
+	}
+
+	reloadEditor() {
+		if (!this.editorView) {
+			return;
+		}
+		this.mountEditor(this.getViewData());
 	}
 
 	getViewType(): string {
@@ -422,7 +441,13 @@ class CodeFileView extends TextFileView {
 	}
 
 	private createEditorExtensions(): Extension[] {
-		const extensions: Extension[] = [
+		const extensions: Extension[] = [];
+
+		if (this.plugin.settings.vim) {
+			extensions.push(Prec.highest(vim()));
+		}
+
+		extensions.push(
 			EditorState.tabSize.of(4),
 			indentUnit.of("    "),
 			history(),
@@ -579,8 +604,8 @@ class CodeFileView extends TextFileView {
 					color: "var(--text-normal)",
 					borderColor: "var(--background-modifier-border)",
 				},
-			}),
-		];
+			})
+		);
 
 		const languageExtension = languageExtensionForFile(this.file);
 		if (languageExtension) {
@@ -696,12 +721,18 @@ class CodeFileView extends TextFileView {
 }
 
 export default class ObsidianCodePlugin extends Plugin {
+	settings: ObsidianCodeSettings = { ...DEFAULT_SETTINGS };
+
 	async onload() {
-		this.registerView(VIEW_TYPE_CODE, (leaf) => new CodeFileView(leaf));
+		await this.loadSettings();
+
+		this.registerView(VIEW_TYPE_CODE, (leaf) => new CodeFileView(leaf, this));
 
 		for (const extension of CODE_EXTENSIONS) {
 			this.registerCodeExtension(extension);
 		}
+
+		this.addSettingTab(new ObsidianCodeSettingTab(this.app, this));
 
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
@@ -721,6 +752,24 @@ export default class ObsidianCodePlugin extends Plugin {
 				});
 			})
 		);
+	}
+
+	async loadSettings() {
+		const stored = (await this.loadData()) as Partial<ObsidianCodeSettings> | null;
+		this.settings = { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
+	reloadAllEditors() {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CODE)) {
+			const view = leaf.view;
+			if (view instanceof CodeFileView) {
+				view.reloadEditor();
+			}
+		}
 	}
 
 	private registerCodeExtension(extension: string) {
@@ -786,6 +835,33 @@ export default class ObsidianCodePlugin extends Plugin {
 
 			await this.app.vault.createFolder(currentPath);
 		}
+	}
+}
+
+class ObsidianCodeSettingTab extends PluginSettingTab {
+	private readonly plugin: ObsidianCodePlugin;
+
+	constructor(app: App, plugin: ObsidianCodePlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		const { containerEl } = this;
+		containerEl.empty();
+
+		new Setting(containerEl)
+			.setName("Vim keybindings")
+			.setDesc(
+				"Use vim modal editing inside Obsidian Code panes. Applies to open code files immediately."
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.vim).onChange(async (value) => {
+					this.plugin.settings.vim = value;
+					await this.plugin.saveSettings();
+					this.plugin.reloadAllEditors();
+				})
+			);
 	}
 }
 

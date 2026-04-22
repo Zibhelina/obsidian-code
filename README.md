@@ -2,7 +2,7 @@
 
 Obsidian Code opens common code and configuration files inside Obsidian with a native-feeling CodeMirror editor.
 
-The plugin does not add a separate workspace, file explorer, editor header, toolbar, ribbon icon, or settings tab. A code file opens in the main editor pane like a normal Obsidian file, but it renders with code-focused editing features instead of markdown typography.
+The plugin does not add a separate workspace, file explorer, editor header, toolbar, or ribbon icon. A code file opens in the main editor pane like a normal Obsidian file, but it renders with code-focused editing features instead of markdown typography. A minimal settings tab is provided only for opt-in behavior such as vim keybindings.
 
 ## Features
 
@@ -15,6 +15,7 @@ The plugin does not add a separate workspace, file explorer, editor header, tool
 - Inline fold placeholders render as a subtle dotted icon that blends with the editor background.
 - Per-pane code font sizing with `Cmd/Ctrl + Plus` and `Cmd/Ctrl + Minus`, handled while the code pane is focused.
 - Folder context-menu action for creating files such as `main.py` or `hello.c`.
+- Optional vim keybindings for modal editing, toggleable from the plugin's settings tab.
 
 ## Supported Extensions
 
@@ -35,6 +36,12 @@ Open a supported file from Obsidian's file explorer, quick switcher, search resu
 If another plugin already owns an extension, Obsidian Code skips that extension and logs a warning to the developer console instead of failing to load.
 
 Inside a code file, press `Cmd + Plus` or `Cmd + Minus` on macOS, and `Ctrl + Plus` or `Ctrl + Minus` on Windows/Linux, to increase or decrease the code font size for that editor pane.
+
+## Settings
+
+Open **Settings → Community plugins → Obsidian Code** to access the plugin's options.
+
+- **Vim keybindings** — toggle modal vim editing inside Obsidian Code panes. Enabling or disabling the toggle applies to all open code files immediately; the current unsaved buffer is preserved but the cursor returns to the start of the document.
 
 ## Development
 

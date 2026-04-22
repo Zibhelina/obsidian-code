@@ -5,7 +5,7 @@ Obsidian Code is a single-file editor view for code and configuration files. It 
 ## Runtime Components
 
 1. `manifest.json` declares the Obsidian plugin.
-2. `main.ts` registers the `obsidian-code-file` view, maps supported extensions to that view, configures CodeMirror, and adds the folder context-menu file creator.
+2. `main.ts` registers the `obsidian-code-file` view, maps supported extensions to that view, configures CodeMirror, registers a settings tab, and adds the folder context-menu file creator.
 3. `main.js` is the generated Obsidian bundle.
 4. `styles.css` keeps the editor host full-height and lets the create-file modal use the monospace font.
 5. `package.json` pins CodeMirror core packages so the bundled editor has exactly one `@codemirror/state` instance.
@@ -22,6 +22,13 @@ Obsidian Code is a single-file editor view for code and configuration files. It 
 - Parser-based syntax diagnostics, with JSON parse diagnostics for `.json`.
 - Debounced saving through Obsidian's `TextFileView` lifecycle, plus `Cmd/Ctrl+S`.
 - Per-view font-size adjustment through `Cmd/Ctrl + Plus` and `Cmd/Ctrl + Minus`, implemented as an editor-scoped CSS variable and handled through focused-view hotkeys plus raw keydown capture inside the code pane.
+- Optional vim keybindings via `@replit/codemirror-vim`, added to the extension list with `Prec.highest` when the `vim` setting is enabled so vim's keymap wins against the default CodeMirror keymap.
+
+## Settings
+
+The plugin exposes a single settings tab with one toggle:
+
+- **Vim keybindings** (default: off) — enables modal vim editing. Flipping the toggle persists to `data.json` via `Plugin.saveData` and rebuilds every open `CodeFileView` in place, preserving the current unsaved buffer.
 
 ## Explicitly Not Included
 
@@ -30,7 +37,6 @@ Obsidian Code is a single-file editor view for code and configuration files. It 
 - No editor header.
 - No editor toolbar or buttons.
 - No ribbon icon.
-- No settings tab.
 - No tabs beyond Obsidian's own tabs.
 - No file rename, duplicate, delete, or folder management UI.
 

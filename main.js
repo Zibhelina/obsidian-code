@@ -51180,6 +51180,7 @@ var lintExtensions = [
 ];
 
 // main.ts
+var VimApi = Vim;
 var VIEW_TYPE_CODE = "obsidian-code-file";
 var DEFAULT_CODE_FONT_SIZE_PX = 14;
 var MIN_CODE_FONT_SIZE_PX = 9;
@@ -51498,6 +51499,7 @@ var CodeFileView = class extends import_obsidian.TextFileView {
     var _a2;
     const extensions = [];
     if (this.plugin.settings.vim) {
+      installVimCustomizations();
       extensions.push(Prec.highest(vim()));
       extensions.push(
         Prec.highest(
@@ -51962,6 +51964,41 @@ function parseCssPixelValue(value) {
 }
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+var vimCustomizationsInstalled = false;
+function installVimCustomizations() {
+  if (vimCustomizationsInstalled) {
+    return;
+  }
+  vimCustomizationsInstalled = true;
+  VimApi.defineAction("codeInsertLineStart", (cm, _args, vimState) => {
+    var _a2;
+    if (!vimState || !vimState.visualMode) {
+      return;
+    }
+    const sel = vimState.sel;
+    const firstLine = Math.min(sel.head.line, sel.anchor.line);
+    const line = (_a2 = cm.getLine(firstLine)) != null ? _a2 : "";
+    const firstNonBlank = line.search(/\S/);
+    const column = firstNonBlank === -1 ? line.length : firstNonBlank;
+    VimApi.exitVisualMode(cm, false);
+    cm.setCursor(firstLine, column);
+    VimApi.handleKey(cm, "i", "mapping");
+  });
+  VimApi.defineAction("codeInsertLineEnd", (cm, _args, vimState) => {
+    var _a2;
+    if (!vimState || !vimState.visualMode) {
+      return;
+    }
+    const sel = vimState.sel;
+    const lastLine = Math.max(sel.head.line, sel.anchor.line);
+    const line = (_a2 = cm.getLine(lastLine)) != null ? _a2 : "";
+    VimApi.exitVisualMode(cm, false);
+    cm.setCursor(lastLine, line.length);
+    VimApi.handleKey(cm, "i", "mapping");
+  });
+  VimApi.mapCommand("I", "action", "codeInsertLineStart", {}, { context: "visual" });
+  VimApi.mapCommand("A", "action", "codeInsertLineEnd", {}, { context: "visual" });
 }
 function indentGuides() {
   return ViewPlugin.fromClass(

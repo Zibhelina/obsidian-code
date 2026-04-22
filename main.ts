@@ -16,6 +16,9 @@ import {
 	normalizePath,
 } from "obsidian";
 import { vim } from "@replit/codemirror-vim";
+import * as vimModule from "@replit/codemirror-vim";
+
+const VimApi: any = (vimModule as any).Vim;
 import { closeBrackets, closeBracketsKeymap, completionKeymap, autocompletion } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
@@ -444,6 +447,7 @@ class CodeFileView extends TextFileView {
 		const extensions: Extension[] = [];
 
 		if (this.plugin.settings.vim) {
+			installVimCustomizations();
 			extensions.push(Prec.highest(vim()));
 			extensions.push(
 				Prec.highest(
@@ -969,6 +973,44 @@ function parseCssPixelValue(value: string): number | null {
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(Math.max(value, min), max);
+}
+
+let vimCustomizationsInstalled = false;
+
+function installVimCustomizations(): void {
+	if (vimCustomizationsInstalled) {
+		return;
+	}
+	vimCustomizationsInstalled = true;
+
+	VimApi.defineAction("codeInsertLineStart", (cm: any, _args: any, vimState: any) => {
+		if (!vimState || !vimState.visualMode) {
+			return;
+		}
+		const sel = vimState.sel;
+		const firstLine = Math.min(sel.head.line, sel.anchor.line);
+		const line = cm.getLine(firstLine) ?? "";
+		const firstNonBlank = line.search(/\S/);
+		const column = firstNonBlank === -1 ? line.length : firstNonBlank;
+		VimApi.exitVisualMode(cm, false);
+		cm.setCursor(firstLine, column);
+		VimApi.handleKey(cm, "i", "mapping");
+	});
+
+	VimApi.defineAction("codeInsertLineEnd", (cm: any, _args: any, vimState: any) => {
+		if (!vimState || !vimState.visualMode) {
+			return;
+		}
+		const sel = vimState.sel;
+		const lastLine = Math.max(sel.head.line, sel.anchor.line);
+		const line = cm.getLine(lastLine) ?? "";
+		VimApi.exitVisualMode(cm, false);
+		cm.setCursor(lastLine, line.length);
+		VimApi.handleKey(cm, "i", "mapping");
+	});
+
+	VimApi.mapCommand("I", "action", "codeInsertLineStart", {}, { context: "visual" });
+	VimApi.mapCommand("A", "action", "codeInsertLineEnd", {}, { context: "visual" });
 }
 
 function indentGuides(): Extension {

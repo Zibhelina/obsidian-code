@@ -5,6 +5,7 @@ All notable changes to Obsidian Code are documented here.
 ## Unreleased
 
 - Added an optional vim keybindings toggle, accessible from a new plugin settings tab. Enabling or disabling the toggle rebuilds every open code editor in place without losing the current unsaved buffer.
+- Fixed linewise-visual insert-mode entry so `V` followed by `I` places the cursor at the first non-blank of the first selected line, and `V` followed by `A` places the cursor at the end of the last selected line, matching neovim.
 
 ## 1.0.0 - Native Code Editor
 

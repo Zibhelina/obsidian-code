@@ -64,12 +64,15 @@ import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { verilog } from "@codemirror/legacy-modes/mode/verilog";
 import { vhdl } from "@codemirror/legacy-modes/mode/vhdl";
 import { search, searchKeymap } from "@codemirror/search";
-import { EditorState, Extension, Prec } from "@codemirror/state";
+import { EditorState, Extension, Prec, RangeSetBuilder } from "@codemirror/state";
 import {
+	Decoration,
+	DecorationSet,
 	EditorView,
+	ViewPlugin,
+	ViewUpdate,
 	drawSelection,
 	highlightActiveLine,
-	highlightActiveLineGutter,
 	keymap,
 	lineNumbers,
 } from "@codemirror/view";
@@ -397,11 +400,11 @@ class CodeFileView extends TextFileView {
 			autocompletion({ activateOnTyping: true }),
 			closeBrackets(),
 			bracketMatching(),
-			foldGutter(),
 			lineNumbers(),
 			lintGutter(),
+			foldGutter(),
+			indentGuides(),
 			highlightActiveLine(),
-			highlightActiveLineGutter(),
 			drawSelection(),
 			syntaxHighlighting(obsidianHighlightStyle, { fallback: true }),
 			syntaxErrorLinter(),
@@ -476,13 +479,28 @@ class CodeFileView extends TextFileView {
 					backgroundColor: "transparent",
 					color: "var(--text-muted)",
 					borderRight: "0",
+					paddingLeft: "0",
+					marginLeft: "0",
+				},
+				".cm-gutter": {
+					paddingLeft: "0",
+					marginLeft: "0",
 				},
 				".cm-lineNumbers .cm-gutterElement": {
 					opacity: "0.48",
+					minWidth: "2.6ch",
+					padding: "0 8px 0 0",
+					textAlign: "right",
 				},
 				".cm-foldGutter .cm-gutterElement": {
 					color: "var(--text-faint)",
 					cursor: "pointer",
+					minWidth: "16px",
+					padding: "0 3px",
+					textAlign: "center",
+				},
+				".obsidian-code-indent-guide": {
+					backgroundImage: "linear-gradient(to right, transparent calc(100% - 1px), color-mix(in srgb, var(--text-faint) 34%, transparent) calc(100% - 1px))",
 				},
 				".cm-lintRange-error": {
 					backgroundImage: "linear-gradient(45deg, transparent 65%, var(--text-error) 80%, transparent 90%)",
@@ -494,8 +512,7 @@ class CodeFileView extends TextFileView {
 					backgroundColor: "color-mix(in srgb, var(--interactive-accent) 8%, transparent)",
 				},
 				".cm-activeLineGutter": {
-					backgroundColor: "color-mix(in srgb, var(--interactive-accent) 10%, transparent)",
-					color: "var(--text-normal)",
+					backgroundColor: "transparent",
 				},
 				"&.cm-focused": {
 					outline: "none",
@@ -710,6 +727,76 @@ function parseCssPixelValue(value: string): number | null {
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(Math.max(value, min), max);
+}
+
+const indentGuideDecoration = Decoration.mark({
+	class: "obsidian-code-indent-guide",
+});
+
+function indentGuides(): Extension {
+	return ViewPlugin.fromClass(
+		class {
+			decorations: DecorationSet;
+
+			constructor(view: EditorView) {
+				this.decorations = buildIndentGuideDecorations(view);
+			}
+
+			update(update: ViewUpdate) {
+				if (update.docChanged || update.viewportChanged) {
+					this.decorations = buildIndentGuideDecorations(update.view);
+				}
+			}
+		},
+		{
+			decorations: (plugin) => plugin.decorations,
+		}
+	);
+}
+
+function buildIndentGuideDecorations(view: EditorView): DecorationSet {
+	const builder = new RangeSetBuilder<Decoration>();
+	const tabSize = view.state.tabSize;
+
+	for (const range of view.visibleRanges) {
+		let position = range.from;
+
+		while (position <= range.to) {
+			const line = view.state.doc.lineAt(position);
+			addIndentGuidesForLine(builder, line.from, line.text, tabSize);
+			position = line.to + 1;
+		}
+	}
+
+	return builder.finish();
+}
+
+function addIndentGuidesForLine(
+	builder: RangeSetBuilder<Decoration>,
+	lineFrom: number,
+	text: string,
+	tabSize: number
+) {
+	let column = 0;
+
+	for (let index = 0; index < text.length; index++) {
+		const character = text[index];
+
+		if (character !== " " && character !== "\t") {
+			return;
+		}
+
+		const nextColumn =
+			character === "\t"
+				? column + tabSize - (column % tabSize)
+				: column + 1;
+
+		if (nextColumn > 0 && nextColumn % tabSize === 0) {
+			builder.add(lineFrom + index, lineFrom + index + 1, indentGuideDecoration);
+		}
+
+		column = nextColumn;
+	}
 }
 
 function isFontSizeShortcut(event: KeyboardEvent): boolean {

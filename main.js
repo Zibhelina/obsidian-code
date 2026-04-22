@@ -13479,26 +13479,6 @@ function maxLineNumber(lines) {
     last = last * 10 + 9;
   return last;
 }
-var activeLineGutterMarker = /* @__PURE__ */ new class extends GutterMarker {
-  constructor() {
-    super(...arguments);
-    this.elementClass = "cm-activeLineGutter";
-  }
-}();
-var activeLineGutterHighlighter = /* @__PURE__ */ gutterLineClass.compute(["selection"], (state) => {
-  let marks2 = [], last = -1;
-  for (let range of state.selection.ranges) {
-    let linePos = state.doc.lineAt(range.head).from;
-    if (linePos > last) {
-      last = linePos;
-      marks2.push(activeLineGutterMarker.range(linePos));
-    }
-  }
-  return RangeSet.of(marks2);
-});
-function highlightActiveLineGutter() {
-  return activeLineGutterHighlighter;
-}
 
 // node_modules/@lezer/common/dist/index.js
 var DefaultBufferLength = 1024;
@@ -43875,11 +43855,11 @@ var CodeFileView = class extends import_obsidian.TextFileView {
       autocompletion({ activateOnTyping: true }),
       closeBrackets(),
       bracketMatching(),
-      foldGutter(),
       lineNumbers(),
       lintGutter(),
+      foldGutter(),
+      indentGuides(),
       highlightActiveLine(),
-      highlightActiveLineGutter(),
       drawSelection(),
       syntaxHighlighting(obsidianHighlightStyle, { fallback: true }),
       syntaxErrorLinter(),
@@ -43952,14 +43932,29 @@ var CodeFileView = class extends import_obsidian.TextFileView {
         ".cm-gutters": {
           backgroundColor: "transparent",
           color: "var(--text-muted)",
-          borderRight: "0"
+          borderRight: "0",
+          paddingLeft: "0",
+          marginLeft: "0"
+        },
+        ".cm-gutter": {
+          paddingLeft: "0",
+          marginLeft: "0"
         },
         ".cm-lineNumbers .cm-gutterElement": {
-          opacity: "0.48"
+          opacity: "0.48",
+          minWidth: "2.6ch",
+          padding: "0 8px 0 0",
+          textAlign: "right"
         },
         ".cm-foldGutter .cm-gutterElement": {
           color: "var(--text-faint)",
-          cursor: "pointer"
+          cursor: "pointer",
+          minWidth: "16px",
+          padding: "0 3px",
+          textAlign: "center"
+        },
+        ".obsidian-code-indent-guide": {
+          backgroundImage: "linear-gradient(to right, transparent calc(100% - 1px), color-mix(in srgb, var(--text-faint) 34%, transparent) calc(100% - 1px))"
         },
         ".cm-lintRange-error": {
           backgroundImage: "linear-gradient(45deg, transparent 65%, var(--text-error) 80%, transparent 90%)"
@@ -43971,8 +43966,7 @@ var CodeFileView = class extends import_obsidian.TextFileView {
           backgroundColor: "color-mix(in srgb, var(--interactive-accent) 8%, transparent)"
         },
         ".cm-activeLineGutter": {
-          backgroundColor: "color-mix(in srgb, var(--interactive-accent) 10%, transparent)",
-          color: "var(--text-normal)"
+          backgroundColor: "transparent"
         },
         "&.cm-focused": {
           outline: "none"
@@ -44149,6 +44143,53 @@ function parseCssPixelValue(value) {
 }
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+var indentGuideDecoration = Decoration.mark({
+  class: "obsidian-code-indent-guide"
+});
+function indentGuides() {
+  return ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = buildIndentGuideDecorations(view);
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = buildIndentGuideDecorations(update.view);
+        }
+      }
+    },
+    {
+      decorations: (plugin) => plugin.decorations
+    }
+  );
+}
+function buildIndentGuideDecorations(view) {
+  const builder = new RangeSetBuilder();
+  const tabSize = view.state.tabSize;
+  for (const range of view.visibleRanges) {
+    let position = range.from;
+    while (position <= range.to) {
+      const line = view.state.doc.lineAt(position);
+      addIndentGuidesForLine(builder, line.from, line.text, tabSize);
+      position = line.to + 1;
+    }
+  }
+  return builder.finish();
+}
+function addIndentGuidesForLine(builder, lineFrom, text, tabSize) {
+  let column = 0;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    if (character !== " " && character !== "	") {
+      return;
+    }
+    const nextColumn = character === "	" ? column + tabSize - column % tabSize : column + 1;
+    if (nextColumn > 0 && nextColumn % tabSize === 0) {
+      builder.add(lineFrom + index, lineFrom + index + 1, indentGuideDecoration);
+    }
+    column = nextColumn;
+  }
 }
 function isFontSizeShortcut(event) {
   if (event.altKey) {

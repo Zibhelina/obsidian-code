@@ -14,7 +14,9 @@ Obsidian Code is a single-file editor view for code and configuration files. It 
 
 - CodeMirror editor mounted directly in the Obsidian file pane.
 - Syntax highlighting mapped to Obsidian CSS variables.
-- Minimal line-number and fold gutters without a divider between the gutter and code.
+- Minimal line-number gutter without left padding, subdued line numbers, no active-line gutter highlight, and no divider between the gutter and code.
+- Fold controls are ordered after line numbers so they sit next to the foldable code.
+- Indentation guides are drawn as decorations over leading whitespace.
 - Lint gutter, active-line highlight, search, autocomplete, bracket matching, auto-close brackets, and indentation keymaps.
 - Parser-based syntax diagnostics, with JSON parse diagnostics for `.json`.
 - Debounced saving through Obsidian's `TextFileView` lifecycle, plus `Cmd/Ctrl+S`.

@@ -619,10 +619,13 @@ class CodeFileView extends TextFileView {
 					padding: "0 20px 0 4px",
 				},
 				".cm-gutters": {
-					backgroundColor: "transparent",
+					backgroundColor: "var(--background-primary)",
 					color: "var(--text-muted)",
 					borderRight: "0",
 					paddingLeft: "0",
+					position: "sticky",
+					left: "0",
+					zIndex: "2",
 					marginLeft: "0",
 				},
 				".cm-gutter": {

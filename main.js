@@ -51509,6 +51509,70 @@ var CodeFileView = class extends import_obsidian.TextFileView {
             "&:not(.cm-focused) .cm-fat-cursor": {
               background: "none !important",
               outline: "solid 1px var(--interactive-accent) !important"
+            },
+            ".cm-panels.cm-panels-bottom": {
+              borderTop: "1px solid var(--background-modifier-border) !important"
+            },
+            ".cm-vim-panel": {
+              alignItems: "center",
+              backgroundColor: "var(--background-secondary) !important",
+              color: "var(--text-normal)",
+              padding: "4px 10px !important",
+              minHeight: "26px !important",
+              fontFamily: "var(--font-monospace) !important",
+              fontSize: "0.92em",
+              lineHeight: "1.3",
+              gap: "8px"
+            },
+            ".cm-vim-panel > div": {
+              alignItems: "center",
+              gap: "8px"
+            },
+            ".cm-vim-panel span": {
+              alignItems: "center !important",
+              color: "var(--text-normal)"
+            },
+            ".cm-vim-panel input": {
+              appearance: "none",
+              WebkitAppearance: "none",
+              background: "transparent !important",
+              border: "none !important",
+              borderRadius: "0 !important",
+              outline: "none !important",
+              boxShadow: "none !important",
+              color: "var(--text-normal) !important",
+              caretColor: "var(--interactive-accent) !important",
+              fontFamily: "var(--font-monospace) !important",
+              fontSize: "inherit !important",
+              padding: "0 !important",
+              margin: "0 !important",
+              minWidth: "0"
+            },
+            ".cm-vim-panel input::placeholder": {
+              color: "var(--text-faint)"
+            },
+            ".cm-vim-panel span:last-child": {
+              color: "var(--text-faint) !important",
+              fontStyle: "italic",
+              fontSize: "0.85em",
+              whiteSpace: "nowrap",
+              flex: "0 0 auto",
+              marginLeft: "auto",
+              paddingLeft: "12px"
+            },
+            ".cm-vim-message": {
+              fontFamily: "var(--font-monospace) !important",
+              padding: "4px 10px !important",
+              color: "var(--text-error) !important"
+            },
+            ".cm-searchMatch": {
+              backgroundColor: "color-mix(in srgb, var(--interactive-accent) 35%, transparent) !important",
+              outline: "1px solid color-mix(in srgb, var(--interactive-accent) 65%, transparent)",
+              borderRadius: "2px"
+            },
+            ".cm-searchMatch-selected, .cm-searchMatch.cm-searchMatch-selected": {
+              backgroundColor: "color-mix(in srgb, var(--interactive-accent) 60%, transparent) !important",
+              color: "var(--text-on-accent)"
             }
           })
         )

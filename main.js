@@ -51499,6 +51499,20 @@ var CodeFileView = class extends import_obsidian.TextFileView {
     const extensions = [];
     if (this.plugin.settings.vim) {
       extensions.push(Prec.highest(vim()));
+      extensions.push(
+        Prec.highest(
+          EditorView.theme({
+            ".cm-fat-cursor": {
+              background: "var(--interactive-accent) !important",
+              color: "var(--text-on-accent) !important"
+            },
+            "&:not(.cm-focused) .cm-fat-cursor": {
+              background: "none !important",
+              outline: "solid 1px var(--interactive-accent) !important"
+            }
+          })
+        )
+      );
     }
     extensions.push(
       EditorState.tabSize.of(4),

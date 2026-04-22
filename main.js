@@ -51578,13 +51578,18 @@ var CodeFileView = class extends import_obsidian.TextFileView {
         )
       );
     }
+    const vimEnabled = this.plugin.settings.vim;
     extensions.push(
       EditorState.tabSize.of(4),
       indentUnit.of("    "),
       history(),
       search({ top: true }),
-      autocompletion({ activateOnTyping: true }),
-      closeBrackets(),
+      autocompletion({ activateOnTyping: !vimEnabled })
+    );
+    if (!vimEnabled) {
+      extensions.push(closeBrackets());
+    }
+    extensions.push(
       bracketMatching(),
       lineNumbers(),
       foldGutter(),
@@ -51626,7 +51631,7 @@ var CodeFileView = class extends import_obsidian.TextFileView {
         ...searchKeymap,
         ...completionKeymap,
         ...foldKeymap,
-        ...closeBracketsKeymap,
+        ...vimEnabled ? [] : closeBracketsKeymap,
         ...lintKeymap,
         ...defaultKeymap,
         ...historyKeymap
